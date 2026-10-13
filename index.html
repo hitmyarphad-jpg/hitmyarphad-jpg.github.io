@@ -1,117 +1,357 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AJAY BATTLE ARENA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AJAY BATTLE ARENA ANIME</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#101827;color:white;font-family:Arial;text-align:center}
-header{padding:16px;color:#ffd54a;font-size:23px;font-weight:bold}
-#stats{display:flex;justify-content:space-around;padding:10px}
-canvas{display:block;width:100%;height:55vh;background:#20343c;touch-action:manipulation}
-#controls{display:flex;justify-content:space-around;align-items:center;gap:5px;padding:12px;flex-wrap:wrap}
-button{padding:14px 12px;border:0;border-radius:12px;background:#ffd43b;font-weight:bold;font-size:15px}
-#fire{background:#ff4141;color:white;border-radius:50%;width:75px;height:75px}
-#msg{padding:8px;color:#ffd43b;font-weight:bold}
+body{margin:0;background:#080c1b;color:white;font-family:Arial;text-align:center}
+header{padding:16px 5px;background:linear-gradient(90deg,#111b3b,#30104d,#111b3b);border-bottom:2px solid #30e5ff}
+.logo{font-size:23px;font-weight:900;text-shadow:0 0 12px #00cfff}
+.logo span{color:#ff426b}
+.sub{font-size:10px;letter-spacing:4px;color:#7beeff;margin-top:5px}
+#stats{display:flex;justify-content:space-around;padding:12px 3px;background:#10172b;font-size:12px}
+b{color:#66eaff}
+#arena{position:relative}
+canvas{display:block;width:100%;height:55vh;min-height:330px;max-height:650px;background:#0b1427;touch-action:none}
+#message{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#050916dd;padding:20px}
+#message.hidden{display:none}
+#message h1{font-size:27px;color:#68eaff;text-shadow:0 0 18px #00aaff;margin:10px 0}
+#message p{font-size:13px;color:#d7ddff;line-height:1.7}
+button{border:1px solid #67eaff;border-radius:12px;background:linear-gradient(135deg,#183d69,#29134e);color:white;padding:13px 10px;font-weight:bold;font-size:12px;touch-action:none}
+#start{background:linear-gradient(135deg,#00bfe9,#573cff);font-size:15px;padding:15px 24px}
+#controls{display:flex;justify-content:space-around;align-items:center;gap:4px;padding:14px 3px;background:#10172b}
+.move{min-width:60px}
+#fire{width:68px;height:68px;border-radius:50%;background:linear-gradient(145deg,#ff416c,#a50038);border:2px solid #ff9cb4}
+#special{border-color:#b69aff}
+#tip{font-size:11px;color:#a8b8d8;padding:10px}
 </style>
 </head>
 <body>
-<header>⚔️ AJAY BATTLE ARENA</header>
+<header>
+ <div class="logo">⚔ AJAY <span>BATTLE ARENA</span></div>
+ <div class="sub">ANIME AWAKENING</div>
+</header>
+
 <div id="stats">
-<span>❤️ HP: <b id="hp">100</b></span>
-<span>⭐ Score: <b id="score">0</b></span>
-<span>🌊 Wave: <b id="wave">1</b></span>
+ <div>❤️ HP <b id="hp">100</b></div>
+ <div>⭐ SCORE <b id="score">0</b></div>
+ <div>🌊 WAVE <b id="wave">1</b></div>
 </div>
-<canvas id="game"></canvas>
-<div id="msg">START दबाकर गेम खेलो!</div>
+
+<div id="arena">
+ <canvas id="game"></canvas>
+ <div id="message">
+  <div style="font-size:48px">⚡</div>
+  <h1>ANIME AWAKENING</h1>
+  <p>अपनी ऊर्जा जगाओ!<br>दुश्मनों को हराकर अगली Wave तक पहुँचो।</p>
+  <button id="start">▶ START BATTLE</button>
+ </div>
+</div>
+
 <div id="controls">
-<button id="left">◀ LEFT</button>
-<button id="start">START / RESTART</button>
-<button id="right">RIGHT ▶</button>
-<button id="fire">🔥 FIRE</button>
+ <button class="move" id="left">◀ LEFT</button>
+ <button id="special">⚡ BLAST</button>
+ <button class="move" id="right">RIGHT ▶</button>
+ <button id="fire">🔥<br>ATTACK</button>
 </div>
+<div id="tip">LEFT / RIGHT से चलो • ATTACK से फायर • BLAST से विशेष हमला</div>
+
 <script>
-const c=document.getElementById("game"),ctx=c.getContext("2d");
-let W,H,p,foes,shots,score,hp,wave,running,move,last,spawn;
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const $=id=>document.getElementById(id);
+let W=0,H=0,D=1;
+let player=null,enemies=[],shots=[],particles=[];
+let score=0,hp=100,wave=1,running=false;
+let move=0,last=0,spawn=0,shotWait=0,blastWait=0;
+let stars=[];
+
 function resize(){
-W=c.clientWidth;H=c.clientHeight;
-c.width=W;c.height=H;
-if(!p)p={x:W/2,y:H-40};
+ const r=canvas.getBoundingClientRect();
+ D=Math.min(window.devicePixelRatio||1,2);
+ W=r.width;H=r.height;
+ canvas.width=Math.round(W*D);
+ canvas.height=Math.round(H*D);
+ ctx.setTransform(D,0,0,D,0,0);
+ stars=Array.from({length:65},()=>({
+  x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+0.5
+ }));
+ if(player)player.y=H-57;
 }
-window.addEventListener("resize",resize);resize();
-function start(){
-resize();p={x:W/2,y:H-40};foes=[];shots=[];
-score=0;hp=100;wave=1;move=0;spawn=0;running=true;
-document.getElementById("msg").textContent="दुश्मनों को मारो!";
-last=performance.now();stats();requestAnimationFrame(loop);
+window.addEventListener("resize",resize);
+resize();
+
+function startGame(){
+ resize();
+ player={x:W/2,y:H-57};
+ enemies=[];shots=[];particles=[];
+ score=0;hp=100;wave=1;move=0;spawn=20;
+ shotWait=0;blastWait=0;running=true;
+ $("message").classList.add("hidden");
+ updateStats();
+ last=performance.now();
+ requestAnimationFrame(loop);
 }
-function stats(){
-document.getElementById("hp").textContent=hp;
-document.getElementById("score").textContent=score;
-document.getElementById("wave").textContent=wave;
+function updateStats(){
+ $("hp").textContent=Math.max(0,hp);
+ $("score").textContent=score;
+ $("wave").textContent=wave;
 }
-function fire(){if(running)shots.push({x:p.x,y:p.y-15})}
+function burst(x,y,color,n=12){
+ for(let i=0;i<n;i++){
+  const a=Math.random()*Math.PI*2;
+  const s=Math.random()*3+1;
+  particles.push({
+   x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+   life:20+Math.random()*20,color
+  });
+ }
+}
+function background(){
+ ctx.fillStyle="#0b1427";
+ ctx.fillRect(0,0,W,H);
+ const g=ctx.createLinearGradient(0,0,W,H);
+ g.addColorStop(0,"#101c38");
+ g.addColorStop(1,"#190d30");
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+ for(const s of stars){
+  s.y+=0.25;
+  if(s.y>H){s.y=0;s.x=Math.random()*W}
+  ctx.fillStyle="rgba(100,220,255,.7)";
+  ctx.fillRect(s.x,s.y,s.s,s.s);
+ }
+ ctx.strokeStyle="rgba(51,175,255,.13)";
+ for(let y=25;y<H;y+=42){
+  ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+ }
+ ctx.strokeStyle="rgba(150,50,255,.12)";
+ for(let x=0;x<W;x+=55){
+  ctx.beginPath();ctx.moveTo(W/2,H*.3);ctx.lineTo(x,H);ctx.stroke();
+ }
+}
+function hero(){
+ const p=player;
+ ctx.save();
+ ctx.translate(p.x,p.y);
+ ctx.shadowBlur=18;ctx.shadowColor="#00dfff";
+ ctx.fillStyle="rgba(0,220,255,.12)";
+ ctx.beginPath();ctx.ellipse(0,3,24,34,0,0,Math.PI*2);ctx.fill();
+ ctx.shadowBlur=0;
+
+ // Legs and boots
+ ctx.fillStyle="#26365b";
+ ctx.fillRect(-12,15,9,17);ctx.fillRect(3,15,9,17);
+ ctx.fillStyle="#48eaff";
+ ctx.fillRect(-14,28,12,5);ctx.fillRect(3,28,12,5);
+
+ // Anime jacket
+ ctx.fillStyle="#172847";
+ ctx.beginPath();
+ ctx.moveTo(-14,-7);ctx.lineTo(14,-7);
+ ctx.lineTo(18,19);ctx.lineTo(7,24);ctx.lineTo(0,14);
+ ctx.lineTo(-7,24);ctx.lineTo(-18,19);ctx.closePath();ctx.fill();
+ ctx.fillStyle="#00dfff";
+ ctx.beginPath();ctx.moveTo(-4,-5);ctx.lineTo(4,-5);
+ ctx.lineTo(0,14);ctx.closePath();ctx.fill();
+
+ // Arms
+ ctx.fillStyle="#344b76";
+ ctx.fillRect(-21,-4,8,19);ctx.fillRect(13,-4,8,19);
+ ctx.fillStyle="#efbd9e";
+ ctx.fillRect(-21,11,8,7);ctx.fillRect(13,11,8,7);
+
+ // Face and neck
+ ctx.fillStyle="#efbd9e";ctx.fillRect(-5,-14,10,8);
+ ctx.beginPath();ctx.ellipse(0,-21,12,15,0,0,Math.PI*2);ctx.fill();
+
+ // Spiky anime hair
+ ctx.fillStyle="#101522";
+ ctx.beginPath();
+ ctx.moveTo(-13,-20);ctx.lineTo(-17,-34);
+ ctx.lineTo(-8,-30);ctx.lineTo(-5,-40);
+ ctx.lineTo(2,-31);ctx.lineTo(10,-39);
+ ctx.lineTo(11,-29);ctx.lineTo(17,-33);
+ ctx.lineTo(12,-15);ctx.lineTo(7,-23);
+ ctx.lineTo(0,-18);ctx.lineTo(-7,-22);
+ ctx.lineTo(-12,-14);ctx.closePath();ctx.fill();
+
+ // Bright fringe
+ ctx.fillStyle="#00e5ff";
+ ctx.beginPath();
+ ctx.moveTo(-7,-30);ctx.lineTo(1,-33);
+ ctx.lineTo(-1,-21);ctx.lineTo(-7,-23);ctx.closePath();ctx.fill();
+
+ // Eyes
+ ctx.fillStyle="#fff";
+ ctx.fillRect(-8,-22,5,3);ctx.fillRect(3,-22,5,3);
+ ctx.fillStyle="#00eaff";
+ ctx.fillRect(-7,-21,3,2);ctx.fillRect(4,-21,3,2);
+
+ // Energy sword
+ ctx.shadowBlur=12;ctx.shadowColor="#00dfff";
+ ctx.strokeStyle="#54f4ff";ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(19,1);ctx.lineTo(27,-17);ctx.stroke();
+ ctx.strokeStyle="#fff";ctx.lineWidth=1;
+ ctx.beginPath();ctx.moveTo(19,1);ctx.lineTo(27,-17);ctx.stroke();
+ ctx.restore();
+}
+function enemyDraw(e){
+ ctx.save();ctx.translate(e.x,e.y);
+ ctx.shadowBlur=14;ctx.shadowColor="#ff244f";
+ ctx.fillStyle="#641b3b";
+ ctx.beginPath();
+ ctx.moveTo(-13,-8);ctx.lineTo(-17,-18);ctx.lineTo(-6,-14);
+ ctx.lineTo(0,-20);ctx.lineTo(7,-14);ctx.lineTo(17,-18);
+ ctx.lineTo(13,-5);ctx.lineTo(15,12);ctx.lineTo(0,18);
+ ctx.lineTo(-15,12);ctx.closePath();ctx.fill();
+ ctx.shadowBlur=0;
+ ctx.fillStyle="#ed3c62";
+ ctx.fillRect(-11,-7,22,17);
+ ctx.fillStyle="#fff";
+ ctx.fillRect(-9,-8,5,3);ctx.fillRect(4,-8,5,3);
+ ctx.fillStyle="#ff143f";
+ ctx.fillRect(-8,-7,4,2);ctx.fillRect(5,-7,4,2);
+ ctx.fillStyle="#2d1634";
+ ctx.fillRect(-10,10,7,9);ctx.fillRect(4,10,7,9);
+ ctx.restore();
+}
+function shoot(){
+ if(!running||shotWait>0)return;
+ shots.push({x:player.x,y:player.y-32,special:false});
+ shotWait=9;
+}
+function blast(){
+ if(!running||blastWait>0)return;
+ shots.push({x:player.x,y:player.y-35,special:true});
+ blastWait=100;
+ burst(player.x,player.y-25,"#00eaff",18);
+}
+function endGame(){
+ running=false;move=0;
+ $("message").classList.remove("hidden");
+ $("message").innerHTML=
+ '<div style="font-size:45px">💥</div>'+
+ '<h1>BATTLE OVER</h1>'+
+ '<p>तुम्हारा स्कोर: '+score+'<br>फिर से कोशिश करो!</p>'+
+ '<button id="start">↻ PLAY AGAIN</button>';
+ $("start").onclick=startGame;
+}
 function loop(t){
-if(!running)return;
-let d=Math.min((t-last)/16,2);last=t;
-ctx.clearRect(0,0,W,H);
-ctx.fillStyle="#20343c";ctx.fillRect(0,0,W,H);
-ctx.strokeStyle="#2b4851";
-for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
-p.x=Math.max(15,Math.min(W-15,p.x+move*4*d));
-if(--spawn<=0){foes.push({x:15+Math.random()*(W-30),y:-15});spawn=Math.max(15,50-wave*2)}
-for(let i=shots.length-1;i>=0;i--){
-let b=shots[i];b.y-=8*d;ctx.fillStyle="#ffe45c";ctx.fillRect(b.x-3,b.y-8,6,12);
-if(b.y<0)shots.splice(i,1);
-}
-for(let i=foes.length-1;i>=0;i--){
-let e=foes[i];e.y+=(1+wave*.15)*d;
-ctx.fillStyle="#ff5151";ctx.beginPath();ctx.arc(e.x,e.y,12,0,7);ctx.fill();
-let hit=shots.findIndex(b=>Math.hypot(b.x-e.x,b.y-e.y)<17);
-if(hit>=0){shots.splice(hit,1);foes.splice(i,1);score+=10;wave=1+Math.floor(score/100);stats();continue}
-if(Math.hypot(e.x-p.x,e.y-p.y)<22||e.y>H){
-foes.splice(i,1);hp-=10;stats();
-if(hp<=0){running=false;document.getElementById("msg").textContent="GAME OVER! Score: "+score+" — RESTART दबाओ";return}
-}
+ if(!running)return;
+ const d=Math.min((t-last)/16.67,2);
+ last=t;
+ shotWait=Math.max(0,shotWait-d);
+ blastWait=Math.max(0,blastWait-d);
+ background();
+
+ player.x=Math.max(22,Math.min(W-22,player.x+move*4*d));
+
+ // Spawn enemies
+ spawn-=d;
+ if(spawn<=0){
+  enemies.push({
+   x:22+Math.random()*(W-44),y:-22,
+   speed:1+wave*.13,phase:Math.random()*6
+  });
+  spawn=Math.max(16,50-wave*2.5);
+ }
+
+ // Player projectiles
+ for(let i=shots.length-1;i>=0;i--){
+  const b=shots[i];
+  b.y-=b.special?7*d:8*d;
+  ctx.save();
+  ctx.shadowBlur=b.special?22:12;
+  ctx.shadowColor=b.special?"#a45bff":"#00eaff";
+  ctx.fillStyle=b.special?"#c49aff":"#a7faff";
+  ctx.beginPath();
+  ctx.ellipse(b.x,b.y,b.special?8:3,b.special?17:8,0,0,Math.PI*2);
+  ctx.fill();ctx.restore();
+  if(b.y< -30)shots.splice(i,1);
+ }
+
+ // Enemies
+ for(let i=enemies.length-1;i>=0;i--){
+  const e=enemies[i];
+  e.y+=e.speed*d;
+  e.x+=Math.sin(e.y*.025+e.phase)*.5*d;
+  enemyDraw(e);
+
+  let hit=-1;
+  for(let j=shots.length-1;j>=0;j--){
+   const b=shots[j];
+   if(Math.hypot(e.x-b.x,e.y-b.y)<(b.special?29:18)){
+    hit=j;break;
+   }
+  }
+  if(hit>=0){
+   const b=shots[hit];
+   shots.splice(hit,1);
+   burst(e.x,e.y,b.special?"#c77aff":"#ff416c",b.special?22:12);
+   enemies.splice(i,1);
+   score+=b.special?30:10;
+   wave=1+Math.floor(score/100);
+   updateStats();
+   continue;
+  }
+  if(e.y>H-45||Math.hypot(e.x-player.x,e.y-player.y)<25){
+   enemies.splice(i,1);hp-=10;
+   burst(e.x,e.y,"#ff416c",10);updateStats();
+   if(hp<=0){endGame();return}
+  }
+ }
+
+ // Particles
+ for(let i=particles.length-1;i>=0;i--){
+  const p=particles[i];
+  p.x+=p.vx*d;p.y+=p.vy*d;p.life-=d;
+  ctx.globalAlpha=Math.max(0,p.life/30);
+  ctx.fillStyle=p.color;
+  ctx.fillRect(p.x,p.y,3,3);
+  ctx.globalAlpha=1;
+  if(p.life<=0)particles.splice(i,1);
+ }
+ hero();
+ requestAnimationFrame(loop);
 }
 
-ctx.fillStyle="#47d9ff";
-ctx.fillRect(p.x-10,p.y-5,20,18);
-ctx.fillStyle="#ffcc99";
-ctx.fillRect(p.x-7,p.y-17,14,12);
-ctx.fillStyle="#263238";
-ctx.fillRect(p.x-8,p.y-20,16,6);
-ctx.fillStyle="#ffffff";
-ctx.fillRect(p.x-5,p.y-13,3,3);
-ctx.fillRect(p.x+2,p.y-13,3,3);
-ctx.fillStyle="#ff4545";
-ctx.fillRect(p.x-13,p.y+2,6,12);
-ctx.fillRect(p.x+7,p.y+2,6,12);
-ctx.fillStyle="#263238";
-ctx.fillRect(p.x-9,p.y+13,7,9);
-ctx.fillRect(p.x+2,p.y+13,7,9);
+$("start").onclick=startGame;
+$("fire").addEventListener("pointerdown",e=>{e.preventDefault();shoot()});
+$("special").addEventListener("pointerdown",e=>{e.preventDefault();blast()});
 
-requestAnimationFrame(loop);
+function holdButton(id,dir){
+ const el=$(id);
+ el.addEventListener("pointerdown",e=>{
+  e.preventDefault();move=dir;
+  try{el.setPointerCapture(e.pointerId)}catch(_){}
+ });
+ function stop(e){move=0}
+ el.addEventListener("pointerup",stop);
+ el.addEventListener("pointercancel",stop);
+ el.addEventListener("lostpointercapture",stop);
 }
-document.getElementById("start").onclick=start;
-document.getElementById("fire").onclick=fire;
-document.getElementById("left").onpointerdown=()=>move=-1;
-document.getElementById("right").onpointerdown=()=>move=1;
-["left","right"].forEach(id=>{
-let b=document.getElementById(id);
-b.onpointerup=b.onpointercancel=b.onpointerleave=()=>move=0;
-});
-c.addEventListener("pointerdown",e=>{
-if(running){p.x=e.clientX-c.getBoundingClientRect().left;fire()}
+holdButton("left",-1);
+holdButton("right",1);
+
+canvas.addEventListener("pointerdown",e=>{
+ if(!running)return;
+ const r=canvas.getBoundingClientRect();
+ player.x=Math.max(22,Math.min(W-22,e.clientX-r.left));
+ shoot();
 });
 window.addEventListener("keydown",e=>{
-if(e.key==="ArrowLeft")move=-1;
-if(e.key==="ArrowRight")move=1;
-if(e.key===" ")fire();
+ if(e.key==="ArrowLeft")move=-1;
+ if(e.key==="ArrowRight")move=1;
+ if(e.key===" ")shoot();
 });
-window.addEventListener("keyup",()=>move=0);
+window.addEventListener("keyup",e=>{
+ if(e.key==="ArrowLeft"||e.key==="ArrowRight")move=0;
+});
 </script>
 </body>
 </html>
+
