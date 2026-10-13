@@ -1,20 +1,20 @@
 
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AJAY BATTLE ARENA</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#101827;color:white;font-family:Arial;text-align:center;overflow:hidden}
-header{padding:12px;background:#17253b;color:#ffd54a;font-size:22px;font-weight:bold}
-#stats{display:flex;justify-content:space-around;padding:10px;font-weight:bold}
-canvas{display:block;width:100%;height:62vh;background:#202f37;touch-action:none}
-#controls{display:flex;justify-content:space-around;align-items:center;padding:12px}
-button{border:0;border-radius:12px;padding:15px;background:#ffc928;color:#151515;font-weight:bold;font-size:16px}
-#fire{background:#fa4141;color:white;width:85px;height:70px;border-radius:50%}
-#message{position:absolute;top:40%;left:0;width:100%;font-size:25px;font-weight:bold;text-shadow:2px 2px #000;pointer-events:none}
+body{margin:0;background:#101827;color:white;font-family:Arial;text-align:center}
+header{padding:16px;color:#ffd54a;font-size:23px;font-weight:bold}
+#stats{display:flex;justify-content:space-around;padding:10px}
+canvas{display:block;width:100%;height:55vh;background:#20343c;touch-action:manipulation}
+#controls{display:flex;justify-content:space-around;align-items:center;gap:5px;padding:12px;flex-wrap:wrap}
+button{padding:14px 12px;border:0;border-radius:12px;background:#ffd43b;font-weight:bold;font-size:15px}
+#fire{background:#ff4141;color:white;border-radius:50%;width:75px;height:75px}
+#msg{padding:8px;color:#ffd43b;font-weight:bold}
 </style>
 </head>
 <body>
@@ -25,7 +25,7 @@ button{border:0;border-radius:12px;padding:15px;background:#ffc928;color:#151515
 <span>🌊 Wave: <b id="wave">1</b></span>
 </div>
 <canvas id="game"></canvas>
-<div id="message">TAP START TO PLAY</div>
+<div id="msg">START दबाकर गेम खेलो!</div>
 <div id="controls">
 <button id="left">◀ LEFT</button>
 <button id="start">START / RESTART</button>
@@ -34,69 +34,68 @@ button{border:0;border-radius:12px;padding:15px;background:#ffc928;color:#151515
 </div>
 <script>
 const c=document.getElementById("game"),ctx=c.getContext("2d");
-const hpText=document.getElementById("hp"),scoreText=document.getElementById("score"),waveText=document.getElementById("wave"),msg=document.getElementById("message");
-let W=0,H=0,player,enemies=[],bullets=[],score=0,hp=100,wave=1,running=false,move=0,last=0,spawn=0;
+let W,H,p,foes,shots,score,hp,wave,running,move,last,spawn;
 function resize(){
-const r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);
-c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);
-ctx.setTransform(d,0,0,d,0,0);W=r.width;H=r.height;
-if(!player)player={x:W/2,y:H-55};
-player.x=Math.max(20,Math.min(W-20,player.x));
+W=c.clientWidth;H=c.clientHeight;
+c.width=W;c.height=H;
+if(!p)p={x:W/2,y:H-40};
 }
-addEventListener("resize",resize);resize();
-function startGame(){
-player={x:W/2,y:H-55};enemies=[];bullets=[];score=0;hp=100;wave=1;spawn=0;running=true;msg.style.display="none";updateStats();last=performance.now();requestAnimationFrame(loop);
+window.addEventListener("resize",resize);resize();
+function start(){
+resize();p={x:W/2,y:H-40};foes=[];shots=[];
+score=0;hp=100;wave=1;move=0;spawn=0;running=true;
+document.getElementById("msg").textContent="दुश्मनों को मारो!";
+last=performance.now();stats();requestAnimationFrame(loop);
 }
-function updateStats(){hpText.textContent=hp;scoreText.textContent=score;waveText.textContent=wave}
-function drawPlayer(){
-ctx.fillStyle="#47d9ff";ctx.beginPath();ctx.moveTo(player.x,player.y-18);ctx.lineTo(player.x-15,player.y+15);ctx.lineTo(player.x+15,player.y+15);ctx.closePath();ctx.fill();
-ctx.fillStyle="white";ctx.fillRect(player.x-4,player.y+5,8,8);
+function stats(){
+document.getElementById("hp").textContent=hp;
+document.getElementById("score").textContent=score;
+document.getElementById("wave").textContent=wave;
 }
-function loop(now){
+function fire(){if(running)shots.push({x:p.x,y:p.y-15})}
+function loop(t){
 if(!running)return;
-let dt=Math.min((now-last)/16,2);last=now;
+let d=Math.min((t-last)/16,2);last=t;
 ctx.clearRect(0,0,W,H);
-ctx.fillStyle="#263b43";ctx.fillRect(0,0,W,H);
-ctx.strokeStyle="#304b53";ctx.lineWidth=1;
+ctx.fillStyle="#20343c";ctx.fillRect(0,0,W,H);
+ctx.strokeStyle="#2b4851";
 for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
-player.x=Math.max(18,Math.min(W-18,player.x+move*4*dt));
-spawn-=dt;
-if(spawn<=0){enemies.push({x:20+Math.random()*(W-40),y:-20,r:13,speed:1+wave*.18});spawn=Math.max(18,55-wave*3)}
-for(let i=bullets.length-1;i>=0;i--){
-let b=bullets[i];b.y-=8*dt;
-ctx.fillStyle="#ffe45c";ctx.fillRect(b.x-3,b.y-9,6,12);
-if(b.y<0)bullets.splice(i,1);
+p.x=Math.max(15,Math.min(W-15,p.x+move*4*d));
+if(--spawn<=0){foes.push({x:15+Math.random()*(W-30),y:-15});spawn=Math.max(15,50-wave*2)}
+for(let i=shots.length-1;i>=0;i--){
+let b=shots[i];b.y-=8*d;ctx.fillStyle="#ffe45c";ctx.fillRect(b.x-3,b.y-8,6,12);
+if(b.y<0)shots.splice(i,1);
 }
-for(let i=enemies.length-1;i>=0;i--){
-let e=enemies[i];e.y+=e.speed*dt;
-ctx.fillStyle="#ff5353";ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);ctx.fill();
-ctx.fillStyle="#fff";ctx.fillRect(e.x-4,e.y-4,8,8);
-if(Math.hypot(e.x-player.x,e.y-player.y)<25){enemies.splice(i,1);hp-=15;updateStats();if(hp<=0){endGame();return}}
-else if(e.y>H){enemies.splice(i,1);hp-=5;updateStats();if(hp<=0){endGame();return}}
-else{
-for(let j=bullets.length-1;j>=0;j--){
-if(Math.hypot(e.x-bullets[j].x,e.y-bullets[j].y)<e.r+5){
-enemies.splice(i,1);bullets.splice(j,1);score+=10;
-wave=1+Math.floor(score/100);updateStats();break;
-}}
+for(let i=foes.length-1;i>=0;i--){
+let e=foes[i];e.y+=(1+wave*.15)*d;
+ctx.fillStyle="#ff5151";ctx.beginPath();ctx.arc(e.x,e.y,12,0,7);ctx.fill();
+let hit=shots.findIndex(b=>Math.hypot(b.x-e.x,b.y-e.y)<17);
+if(hit>=0){shots.splice(hit,1);foes.splice(i,1);score+=10;wave=1+Math.floor(score/100);stats();continue}
+if(Math.hypot(e.x-p.x,e.y-p.y)<22||e.y>H){
+foes.splice(i,1);hp-=10;stats();
+if(hp<=0){running=false;document.getElementById("msg").textContent="GAME OVER! Score: "+score+" — RESTART दबाओ";return}
 }
 }
-drawPlayer();
+ctx.fillStyle="#47d9ff";ctx.beginPath();ctx.moveTo(p.x,p.y-17);ctx.lineTo(p.x-14,p.y+13);ctx.lineTo(p.x+14,p.y+13);ctx.fill();
 requestAnimationFrame(loop);
 }
-function endGame(){running=false;msg.innerHTML="GAME OVER<br>Score: "+score+"<br>Press RESTART";msg.style.display="block"}
-function fire(){if(running)bullets.push({x:player.x,y:player.y-18})}
-document.getElementById("start").onclick=startGame;
+document.getElementById("start").onclick=start;
 document.getElementById("fire").onclick=fire;
 document.getElementById("left").onpointerdown=()=>move=-1;
 document.getElementById("right").onpointerdown=()=>move=1;
-for(const id of ["left","right"]){
-const el=document.getElementById(id);
-el.onpointerup=el.onpointercancel=el.onpointerleave=()=>move=0;
-}
-c.addEventListener("pointerdown",e=>{if(running){const r=c.getBoundingClientRect();player.x=e.clientX-r.left;fire()}});
-addEventListener("keydown",e=>{if(e.key==="ArrowLeft")move=-1;if(e.key==="ArrowRight")move=1;if(e.key===" ")fire()});
-addEventListener("keyup",e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight")move=0});
+["left","right"].forEach(id=>{
+let b=document.getElementById(id);
+b.onpointerup=b.onpointercancel=b.onpointerleave=()=>move=0;
+});
+c.addEventListener("pointerdown",e=>{
+if(running){p.x=e.clientX-c.getBoundingClientRect().left;fire()}
+});
+window.addEventListener("keydown",e=>{
+if(e.key==="ArrowLeft")move=-1;
+if(e.key==="ArrowRight")move=1;
+if(e.key===" ")fire();
+});
+window.addEventListener("keyup",()=>move=0);
 </script>
 </body>
 </html>
